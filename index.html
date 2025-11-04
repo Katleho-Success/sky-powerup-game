@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💥 Falling Blocks Laser Game</title>
+<style>
+  body { margin: 0; overflow: hidden; background: radial-gradient(circle, #111, #222, #000); font-family: Arial, sans-serif; text-align: center; color: white; }
+  #gameCanvas { background-color: #111; display: block; margin: 0 auto; border: 2px solid #00ffcc; box-shadow: 0 0 15px #00ffcc; }
+  #info { margin: 10px; font-size: 18px; }
+</style>
+</head>
+<body>
+<h2>💥 Falling Blocks Laser Game KMS</h2>
+<p id="info">⬅️➡️ Move. Yellow pill: invincible. Green pill: shoot blocks!</p>
+<canvas id="gameCanvas" width="400" height="500"></canvas>
+
+<!-- Sounds -->
+<audio id="hitSound" src="https://www.soundjay.com/button/beep-10.mp3"></audio>
+<audio id="powerSound" src="https://www.soundjay.com/button/button-3.mp3"></audio>
+<audio id="laserSound" src="https://www.soundjay.com/button/button-4.mp3"></audio>
+<audio id="bgMusic" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop></audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Player
+const player = { x: 180, y: 450, width: 40, height: 40, color: "#00ffcc" };
+let blocks = [];
+let pills = [];
+let lasers = [];
+let score = 0;
+let gameOver = false;
+
+// Power-up status
+let invincible = false;
+let powerTime = 0;
+let canShoot = false;
+let laserTime = 0;
+
+const hitSound = document.getElementById("hitSound");
+const powerSound = document.getElementById("powerSound");
+const laserSound = document.getElementById("laserSound");
+const bgMusic = document.getElementById("bgMusic");
+
+let musicStarted = false;
+window.addEventListener("keydown", () => { if(!musicStarted){ bgMusic.play(); musicStarted=true; } });
+
+// Draw functions
+function drawPlayer() {
+  ctx.fillStyle = invincible ? "rgba(255,255,0,0.3)" : player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+}
+
+function drawBlocks() {
+  blocks.forEach(b => {
+    ctx.fillStyle = "red";
+    ctx.fillRect(b.x, b.y, b.size, b.size);
+  });
+}
+
+function drawPills() {
+  pills.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    if(p.type === 'invincible') ctx.fillStyle = "#FFD700"; // Yellow
+    if(p.type === 'laser') ctx.fillStyle = "#00FF00"; // Green
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 15;
+    ctx.fill();
+    ctx.closePath();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawLasers() {
+  lasers.forEach(l => {
+    ctx.fillStyle = "#00ffff";
+    ctx.fillRect(l.x, l.y, 5, 20);
+  });
+}
+
+// Update functions
+function updateBlocks() {
+  blocks.forEach(b => b.y += 3);
+  blocks = blocks.filter(b => b.y < canvas.height+50);
+  if(Math.random() < 0.03){ blocks.push({x:Math.random()*360, y:-20, size:30}); }
+}
+
+function updatePills() {
+  pills.forEach(p => p.y += 2);
+  pills = pills.filter(p => p.y < canvas.height+50);
+  // Randomly spawn rare pills
+  if(Math.random() < 0.004){ pills.push({x: Math.random()*380+10, y:-20, size:10, type:'invincible'}); }
+  if(Math.random() < 0.003){ pills.push({x: Math.random()*380+10, y:-20, size:10, type:'laser'}); }
+}
+
+function updateLasers() {
+  lasers.forEach(l => l.y -= 6);
+  lasers = lasers.filter(l => l.y > -20);
+}
+
+function checkCollisions() {
+  // Block collision
+  if(!invincible){
+    for(let b of blocks){
+      if(b.x<player.x+player.width && b.x+b.size>player.x && b.y<player.y+player.height && b.y+b.size>player.y){
+        hitSound.play();
+        bgMusic.pause();
+        gameOver=true;
+        setTimeout(()=>alert(`💀 Game Over! Score: ${score}`),100);
+      }
+    }
+  }
+  // Pill collection
+  for(let i=pills.length-1;i>=0;i--){
+    let p = pills[i];
+    if(p.x-p.size<player.x+player.width && p.x+p.size>player.x && p.y-p.size<player.y+player.height && p.y+p.size>player.y){
+      powerSound.play();
+      if(p.type==='invincible') activateInvincible();
+      if(p.type==='laser') activateLaser();
+      pills.splice(i,1);
+    }
+  }
+  // Laser hits blocks
+  for(let i=blocks.length-1;i>=0;i--){
+    let b = blocks[i];
+    for(let l of lasers){
+      if(l.x < b.x+b.size && l.x+5 > b.x && l.y < b.y+b.size && l.y+20 > b.y){
+        blocks.splice(i,1);
+        score += 5; // extra points
+        break;
+      }
+    }
+  }
+}
+
+// Power-ups
+function activateInvincible(){ invincible=true; powerTime=Date.now(); }
+function activateLaser(){ canShoot=true; laserTime=Date.now(); laserSound.play(); }
+
+// Player movement
+function movePlayer(e){
+  if(e.key==='ArrowLeft' && player.x>0) player.x-=30;
+  if(e.key==='ArrowRight' && player.x<canvas.width-player.width) player.x+=30;
+  if(e.key===' ' && canShoot) lasers.push({x:player.x+player.width/2-2.5, y:player.y}); // shoot
+}
+window.addEventListener('keydown',movePlayer);
+
+// Game loop
+function gameLoop(){
+  if(gameOver) return;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawPlayer(); drawBlocks(); drawPills(); drawLasers();
+  updateBlocks(); updatePills(); updateLasers(); checkCollisions();
+
+  // Handle power-up timers
+  if(invincible && Date.now()-powerTime>5000) invincible=false;
+  if(canShoot && Date.now()-laserTime>5000) canShoot=false;
+
+  score++;
+  document.getElementById('info').textContent = `Score: ${score} ${invincible?'⚡ Invincible':''} ${canShoot?'💥 Laser':''}`;
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
