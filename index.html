@@ -3,17 +3,74 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💥 Falling Blocks Laser Game</title>
+<title>💥 Falling Blocks Laser Game (Mobile)</title>
 <style>
-  body { margin: 0; overflow: hidden; background: radial-gradient(circle, #111, #222, #000); font-family: Arial, sans-serif; text-align: center; color: white; }
-  #gameCanvas { background-color: #111; display: block; margin: 0 auto; border: 2px solid #00ffcc; box-shadow: 0 0 15px #00ffcc; }
-  #info { margin: 10px; font-size: 18px; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: radial-gradient(circle, #111, #222, #000);
+    font-family: Arial, sans-serif;
+    text-align: center;
+    color: white;
+  }
+
+  #gameCanvas {
+    background-color: #111;
+    display: block;
+    margin: 0 auto;
+    border: 2px solid #00ffcc;
+    box-shadow: 0 0 15px #00ffcc;
+  }
+
+  #info {
+    margin: 8px;
+    font-size: 18px;
+  }
+
+  #controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px;
+  }
+
+  button {
+    background: #00ffcc;
+    color: black;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 0 10px #00ffcc;
+    transition: transform 0.2s;
+  }
+
+  button:active {
+    transform: scale(0.9);
+    background: #00bbaa;
+  }
+
+  #startBtn, #restartBtn {
+    background: #ffd700;
+    color: #000;
+    margin: 10px;
+  }
 </style>
 </head>
 <body>
-<h2>💥 Falling Blocks Laser Game KMS</h2>
-<p id="info">⬅️➡️ Move. Yellow pill: invincible. Green pill: shoot blocks!</p>
+<h2>💥 Falling Blocks Laser Game</h2>
+<p id="info">Tap ▶️ Start Game</p>
 <canvas id="gameCanvas" width="400" height="500"></canvas>
+
+<div id="controls" style="display:none;">
+  <button id="leftBtn">⬅️</button>
+  <button id="shootBtn">🔫</button>
+  <button id="rightBtn">➡️</button>
+</div>
+
+<button id="startBtn">▶️ Start Game</button>
+<button id="restartBtn" style="display:none;">🔁 Restart</button>
 
 <!-- Sounds -->
 <audio id="hitSound" src="https://www.soundjay.com/button/beep-10.mp3"></audio>
@@ -25,18 +82,17 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Player
 const player = { x: 180, y: 450, width: 40, height: 40, color: "#00ffcc" };
 let blocks = [];
 let pills = [];
 let lasers = [];
 let score = 0;
 let gameOver = false;
+let gameRunning = false;
 
-// Power-up status
 let invincible = false;
-let powerTime = 0;
 let canShoot = false;
+let powerTime = 0;
 let laserTime = 0;
 
 const hitSound = document.getElementById("hitSound");
@@ -44,129 +100,163 @@ const powerSound = document.getElementById("powerSound");
 const laserSound = document.getElementById("laserSound");
 const bgMusic = document.getElementById("bgMusic");
 
-let musicStarted = false;
-window.addEventListener("keydown", () => { if(!musicStarted){ bgMusic.play(); musicStarted=true; } });
+const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
+const controls = document.getElementById("controls");
 
-// Draw functions
+function resetGame() {
+  blocks = [];
+  pills = [];
+  lasers = [];
+  score = 0;
+  gameOver = false;
+  player.x = 180;
+  invincible = false;
+  canShoot = false;
+  gameRunning = true;
+  bgMusic.currentTime = 0;
+  bgMusic.play();
+  controls.style.display = "flex";
+  startBtn.style.display = "none";
+  restartBtn.style.display = "none";
+  gameLoop();
+}
+
+startBtn.onclick = () => {
+  resetGame();
+};
+
+restartBtn.onclick = () => {
+  resetGame();
+};
+
+// Drawing functions
 function drawPlayer() {
-  ctx.fillStyle = invincible ? "rgba(255,255,0,0.3)" : player.color;
+  ctx.fillStyle = invincible ? "rgba(255,255,0,0.4)" : player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
 function drawBlocks() {
-  blocks.forEach(b => {
+  for (const b of blocks) {
     ctx.fillStyle = "red";
     ctx.fillRect(b.x, b.y, b.size, b.size);
-  });
+  }
 }
 
 function drawPills() {
-  pills.forEach(p => {
+  for (const p of pills) {
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-    if(p.type === 'invincible') ctx.fillStyle = "#FFD700"; // Yellow
-    if(p.type === 'laser') ctx.fillStyle = "#00FF00"; // Green
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = p.type === "invincible" ? "#FFD700" : "#00FF00";
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 15;
     ctx.fill();
     ctx.closePath();
     ctx.shadowBlur = 0;
-  });
+  }
 }
 
 function drawLasers() {
-  lasers.forEach(l => {
+  for (const l of lasers) {
     ctx.fillStyle = "#00ffff";
     ctx.fillRect(l.x, l.y, 5, 20);
-  });
+  }
 }
 
-// Update functions
+// Updates
 function updateBlocks() {
-  blocks.forEach(b => b.y += 3);
-  blocks = blocks.filter(b => b.y < canvas.height+50);
-  if(Math.random() < 0.03){ blocks.push({x:Math.random()*360, y:-20, size:30}); }
+  for (const b of blocks) b.y += 3;
+  blocks = blocks.filter(b => b.y < canvas.height + 50);
+  if (Math.random() < 0.03) blocks.push({ x: Math.random() * 360, y: -20, size: 30 });
 }
 
 function updatePills() {
-  pills.forEach(p => p.y += 2);
-  pills = pills.filter(p => p.y < canvas.height+50);
-  // Randomly spawn rare pills
-  if(Math.random() < 0.004){ pills.push({x: Math.random()*380+10, y:-20, size:10, type:'invincible'}); }
-  if(Math.random() < 0.003){ pills.push({x: Math.random()*380+10, y:-20, size:10, type:'laser'}); }
+  for (const p of pills) p.y += 2;
+  pills = pills.filter(p => p.y < canvas.height + 50);
+  if (Math.random() < 0.004) pills.push({ x: Math.random() * 380, y: -20, size: 10, type: "invincible" });
+  if (Math.random() < 0.003) pills.push({ x: Math.random() * 380, y: -20, size: 10, type: "laser" });
 }
 
 function updateLasers() {
-  lasers.forEach(l => l.y -= 6);
+  for (const l of lasers) l.y -= 6;
   lasers = lasers.filter(l => l.y > -20);
 }
 
 function checkCollisions() {
-  // Block collision
-  if(!invincible){
-    for(let b of blocks){
-      if(b.x<player.x+player.width && b.x+b.size>player.x && b.y<player.y+player.height && b.y+b.size>player.y){
+  if (!invincible) {
+    for (const b of blocks) {
+      if (b.x < player.x + player.width && b.x + b.size > player.x && b.y < player.y + player.height && b.y + b.size > player.y) {
         hitSound.play();
         bgMusic.pause();
-        gameOver=true;
-        setTimeout(()=>alert(`💀 Game Over! Score: ${score}`),100);
+        gameOver = true;
+        gameRunning = false;
+        controls.style.display = "none";
+        restartBtn.style.display = "block";
+        setTimeout(() => alert(`💀 Game Over! Score: ${score}`), 200);
       }
     }
   }
-  // Pill collection
-  for(let i=pills.length-1;i>=0;i--){
-    let p = pills[i];
-    if(p.x-p.size<player.x+player.width && p.x+p.size>player.x && p.y-p.size<player.y+player.height && p.y+p.size>player.y){
+
+  for (let i = pills.length - 1; i >= 0; i--) {
+    const p = pills[i];
+    if (p.x - p.size < player.x + player.width && p.x + p.size > player.x && p.y - p.size < player.y + player.height && p.y + p.size > player.y) {
       powerSound.play();
-      if(p.type==='invincible') activateInvincible();
-      if(p.type==='laser') activateLaser();
-      pills.splice(i,1);
+      if (p.type === "invincible") activateInvincible();
+      if (p.type === "laser") activateLaser();
+      pills.splice(i, 1);
     }
   }
-  // Laser hits blocks
-  for(let i=blocks.length-1;i>=0;i--){
-    let b = blocks[i];
-    for(let l of lasers){
-      if(l.x < b.x+b.size && l.x+5 > b.x && l.y < b.y+b.size && l.y+20 > b.y){
-        blocks.splice(i,1);
-        score += 5; // extra points
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    for (const l of lasers) {
+      if (l.x < b.x + b.size && l.x + 5 > b.x && l.y < b.y + b.size && l.y + 20 > b.y) {
+        blocks.splice(i, 1);
+        score += 5;
         break;
       }
     }
   }
 }
 
-// Power-ups
-function activateInvincible(){ invincible=true; powerTime=Date.now(); }
-function activateLaser(){ canShoot=true; laserTime=Date.now(); laserSound.play(); }
-
-// Player movement
-function movePlayer(e){
-  if(e.key==='ArrowLeft' && player.x>0) player.x-=30;
-  if(e.key==='ArrowRight' && player.x<canvas.width-player.width) player.x+=30;
-  if(e.key===' ' && canShoot) lasers.push({x:player.x+player.width/2-2.5, y:player.y}); // shoot
+function activateInvincible() {
+  invincible = true;
+  powerTime = Date.now();
 }
-window.addEventListener('keydown',movePlayer);
 
-// Game loop
-function gameLoop(){
-  if(gameOver) return;
+function activateLaser() {
+  canShoot = true;
+  laserTime = Date.now();
+  laserSound.play();
+}
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawPlayer(); drawBlocks(); drawPills(); drawLasers();
-  updateBlocks(); updatePills(); updateLasers(); checkCollisions();
+// Movement buttons
+document.getElementById("leftBtn").ontouchstart = () => { player.x = Math.max(0, player.x - 30); };
+document.getElementById("rightBtn").ontouchstart = () => { player.x = Math.min(canvas.width - player.width, player.x + 30); };
+document.getElementById("shootBtn").ontouchstart = () => {
+  if (canShoot) lasers.push({ x: player.x + player.width / 2 - 2.5, y: player.y });
+};
 
-  // Handle power-up timers
-  if(invincible && Date.now()-powerTime>5000) invincible=false;
-  if(canShoot && Date.now()-laserTime>5000) canShoot=false;
+// Main loop
+function gameLoop() {
+  if (!gameRunning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawPlayer();
+  drawBlocks();
+  drawPills();
+  drawLasers();
+  updateBlocks();
+  updatePills();
+  updateLasers();
+  checkCollisions();
+
+  if (invincible && Date.now() - powerTime > 5000) invincible = false;
+  if (canShoot && Date.now() - laserTime > 5000) canShoot = false;
 
   score++;
-  document.getElementById('info').textContent = `Score: ${score} ${invincible?'⚡ Invincible':''} ${canShoot?'💥 Laser':''}`;
-
+  document.getElementById("info").textContent = `Score: ${score} ${invincible ? "⚡" : ""} ${canShoot ? "💥" : ""}`;
   requestAnimationFrame(gameLoop);
 }
-
-gameLoop();
 </script>
 </body>
 </html>
